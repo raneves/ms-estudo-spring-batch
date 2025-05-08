@@ -1,5 +1,9 @@
 package br.com.romulo.ms_estudo_spring_batch;
 
+import java.time.LocalDateTime;
+
+import javax.sql.DataSource;
+
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -8,6 +12,8 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,8 +69,25 @@ public class ImportacaoJobConfiguration {
 	        .resource(new FileSystemResource("files/dados.csv")) //caminho do arquivo a ser lido
 	        .comments("--") //comentario do arquivo, se tiver comentario no arquivo deixar como -- no arquivo csv, neste contexto sera desprezado a linha com comentario
 	        .delimited() //colunas delimitados 
+	        .delimiter(";") //colunas delimitados 
 	        .names("cpf", "cliente", "nascimento", "evento", "data", "tipoIngresso", "valor") //nome de cada coluna
-	        .targetType(Importacao.class)//qual eh o destino, o alvo, o resultado final
+	        //.targetType(Importacao.class)//qual eh o destino, o alvo, o resultado final
+	        .fieldSetMapper(new ImportacaoMapper()) //classe que transforma os valores para persistir os dados
+	        .build();//buildar, construir
+	}
+	
+	//eh um bean do spring seja gerenciado pelo spring
+	//retornar ItemWriter<Importacao>
+	//implementacaoo do writer
+	@Bean
+	public ItemWriter<Importacao> writer(DataSource dataSource) {
+	    return new JdbcBatchItemWriterBuilder<Importacao>()//preciso retornar o que vai persistir no banco
+	        .dataSource(dataSource) //informacoes do banco de dados
+	        .sql( //gerar a query sql, para gravar a informacao
+	            "INSERT INTO importacao (cpf, cliente, evento, data, tipo_ingresso, valor, hora_importacao) VALUES" +
+	            " (:cpf, :cliente, :evento, :data, :tipoIngresso, :valor, :horaImportacao)"
+	        )
+	        .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())//os parametros vem do bean de leitura
 	        .build();//buildar, construir
 	}
 }
